@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        #map {
+            height: 700px;
+            width: 700px;
+        }
+
+        .container {
+            width: 100%;
+            display: flex;
+        }
+
+        .inputgroups {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input_button {
+            margin-top: 1rem;
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
+    </style>
+    <title>iView Labs Task</title>
+</head>
+
+<body>
+    <div class="container">
+        <div id="map"></div>
+        <div class="inputgroups">
+            <Textarea rows="5" cols="30" class="input_textarea" id="input_textarea"
+                placeholder="Enter location"></Textarea>
+            <div>
+                <button type="button" class="input_button" onclick="addAddress()">+ Add Address</button>
+                <button type="button" class="input_button" id="generate_polygon_button" disabled onclick="generatePolyGon()">Generate
+                    Polygon</button>
+            </div>
+            <div class="address_list" id="address_list"></div>
+        </div>
+    </div>
+</body>
+<script>
+    // JS for front-end
+    let address_list = []
+    const addAddress = async () => {
+        const input_textarea = document.getElementById("input_textarea")
+        const generate_polygon_button = document.getElementById("generate_polygon_button")
+        const address = input_textarea.value
+        if (address) {
+            const addressDetails = await addSingleMarkerUsingAddress(address)
+            const latitude = Number(addressDetails.latitude).toFixed(5)
+            const longitude = Number(addressDetails.longitude).toFixed(5)
+            const id = Math.floor(Math.random() * (1000))
+
+            map.setView(
+                [latitude, longitude],
+                7
+            );
+
+            address_list.push({
+                id: id,
+                address: address,
+                latitude: latitude,
+                longitude: longitude
+            })
+            input_textarea.value = ""
+            displayArray()
+
+            if (address_list.length > 2)
+                generate_polygon_button.disabled = false
+        }
+    }
+
+    const displayArray = () => {
+        const display_address_list = document.getElementById("address_list")
+        while (display_address_list.firstChild) {
+            display_address_list.removeChild(display_address_list.firstChild);
+        }
+        address_list.map((element, index) => {
+            const address_element = document.createElement("div")
+            address_element.className = "address_element"
+            address_element.style = "margin-top: 1rem"
+            address_element.innerHTML = `${element.address} -- (${element.latitude}, ${element.longitude}) <button onclick="removeAddress(${element.id})">remove</button>`
+            console.log(address_element)
+
+            if (display_address_list.firstChild)
+                display_address_list.insertBefore(address_element, display_address_list.firstChild);
+            else
+                display_address_list.appendChild(address_element);
+        })
+    }
+
+    const removeAddress = (id) => {
+        console.log(id)
+        address_list = address_list.filter(element => id !== element.id)
+        console.log(address_list)
+        displayArray()
+        if (address_list.length < 3)
+            generate_polygon_button.disabled = true
+    }
+
+    const generatePolyGon = () => {
+        const polygonCordinates = address_list.map(element => [element.latitude, element.longitude])
+        const validPolygonData = orderPointsForPolygon(polygonCordinates)
+        const polygon = L.polygon(validPolygonData).addTo(map);
+    }
+
+    // JS for back-end
+    const getCurrentLocationData = () => {
+        return new Promise((resolve, reject) => {
+            const watcher = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const long = pos.coords.longitude;
+                    const acc = pos.coords.accuracy;
+                    const ss = {
+                        latitude: lat,
+                        longitude: long,
+                        accuracy: acc,
+                    };
+                    resolve(ss);
+                },
+                (err) => {
+                    alert("Check Console");
+                    console.log(err);
+                    reject(err);
+                }
+            );
+        });
+    };
+    const convertURLAddress = (address) => {
+        return address;
+    }
+    const getFetchResults = async (searchURL) => {
+        try {
+            const urlRes = await fetch(searchURL);
+            if (!urlRes.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const resLocationData = await urlRes.json();
+            return resLocationData;
+        } catch (error) {
+            console.error('Fetch error:', error);
+            return null;
+        }
+    }
+    const addSingleMarkerUsingCoordinates = (userLiveCoordinates, map, L) => {
+        const userMarker = L.marker([userLiveCoordinates.latitude, userLiveCoordinates.longitude])
+            .addTo(map)
+            .bindPopup("Users Current Location");
+        const userCircle = L.circle([userLiveCoordinates.latitude, userLiveCoordinates.longitude], { radius: userLiveCoordinates.accuracy }).addTo(map);
+        return {
+            userMarker: userMarker,
+            userCircle: userCircle
+        }
+    }
+    const addSingleMarkerUsingAddress = async (address) => {
+        const userQueryAddress = convertURLAddress(address); //TODO Implement this function.
+        const NominatimQuery = `
+      https://nominatim.openstreetmap.org/search?q=${userQueryAddress}&format=json&polygon=1&addressdetails=1
+      `
+        const currAddressData = await getFetchResults(NominatimQuery);
+        const userMarker = L.marker([currAddressData[0].lat, currAddressData[0].lon])
+            .addTo(map)
+            .bindPopup("Users Current Location");
+        const userCircle = L.circle([currAddressData[0].lat, currAddressData[0].lon], { radius: 200 }).addTo(map);
+        return {
+            userMarker: userMarker,
+            userCircle: userCircle,
+            latitude: currAddressData[0].lat,
+            longitude: currAddressData[0].lon
+        }
+    }
+    // Define a tolerance for floating-point comparisons
+    const tolerance = 1e-25; // Adjust as needed for your specific requirements
+
+    const rayCastingAlgo = (coordinate, polygon) => {
+        if (intersectsPolygonEdge(coordinate, polygon)) {
+            return true;
+        }
+        return isPointInPolygon(coordinate, polygon);
+    };
+    const intersectsPolygonEdge = (coordinate, polygon) => {
+        for (let i = 0; i < polygon.length; i++) {
+            const j = (i + 1) % polygon.length;
+            const p1 = polygon[i];
+            const p2 = polygon[j];
+            // Check if the coordinate is on the edge of the polygon using a tolerance value.
+            if (
+                Math.abs(coordinate[1] - p1[1]) === 0 &&
+                Math.abs(coordinate[0] - p1[0]) === 0
+            ) {
+                return true;
+            }
+            if (intersectsLineSegment(coordinate, p1, p2)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    const intersectsLineSegment = (point, p1, p2) => {
+        const [x, y] = point;
+        const [x1, y1] = p1;
+        const [x2, y2] = p2;
+        const slope1 = (y - y1) / (x - x1);
+        const slope2 = (y - y2) / (x - x2);
+        const slopeTolerance = 1e-6;
+        if (Math.abs(slope1 - slope2) <= slopeTolerance) {
+            if (
+                (x >= Math.min(x1, x2) && x <= Math.max(x1, x2)) &&
+                (y >= Math.min(y1, y2) && y <= Math.max(y1, y2))
+            ) {
+                return true;
+            }
+        }
+        return false;
+    };
+    const isPointInPolygon = (point, polygon) => {
+        let count = 0;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const [xi, yi] = polygon[i];
+            const [xj, yj] = polygon[j];
+            if ((yi < point[1] && yj >= point[1]) || (yj < point[1] && yi >= point[1])) {
+                if (xi + ((point[1] - yi) / (yj - yi)) * (xj - xi) < point[0]) {
+                    count++;
+                }
+            }
+        }
+        return count % 2 === 1;
+    };
+
+    function polarAngle(reference, point) {
+        const dx = point[0] - reference[0];
+        const dy = point[1] - reference[1];
+        return Math.atan2(dy, dx);
+    }
+
+    // Function to order points for a clockwise polygon
+    function orderPointsForPolygon(points) {
+        const n = points.length;
+        if (n < 3) {
+            // Not enough points to form a polygon
+            return points;
+        }
+
+        // Find the point with the lowest y-coordinate (and leftmost if tied)
+        let lowestPoint = points[0];
+        for (let i = 1; i < n; i++) {
+            const currentPoint = points[i];
+            if (
+                currentPoint[1] < lowestPoint[1] ||
+                (currentPoint[1] === lowestPoint[1] && currentPoint[0] < lowestPoint[0])
+            ) {
+                lowestPoint = currentPoint;
+            }
+        }
+
+        // Sort the points based on polar angle from the lowest point
+        points.sort((a, b) => {
+            const angleA = polarAngle(lowestPoint, a);
+            const angleB = polarAngle(lowestPoint, b);
+            return angleA - angleB;
+        });
+
+        return points;
+    }
+
+    var map
+    const main = async () => {
+        try {
+            const titleLink = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+            const attribution =
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+            const cityMagnification = 1;
+            const userLiveCoordinates = await getCurrentLocationData();
+            console.log("User Location", userLiveCoordinates);
+            map = L.map("map").setView(
+                [userLiveCoordinates.latitude, userLiveCoordinates.longitude],
+                cityMagnification
+            );
+            L.tileLayer(titleLink, {
+                attribution: attribution,
+            }).addTo(map);
+
+
+            // const res = rayCastingAlgo(
+            //     [x.latitude, x.longitude],
+            //     validPolygonData);
+            // console.log("res", res);
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    };
+    main();
+</script>
+
+</html>
