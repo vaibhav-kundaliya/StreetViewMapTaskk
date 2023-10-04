@@ -116,6 +116,7 @@
     }
 
     // JS for back-end
+    const markerData =[];
     const getCurrentLocationData = () => {
         return new Promise((resolve, reject) => {
             const watcher = navigator.geolocation.watchPosition(
@@ -174,12 +175,22 @@
             .addTo(map)
             .bindPopup("Users Current Location");
         const userCircle = L.circle([currAddressData[0].lat, currAddressData[0].lon], { radius: 200 }).addTo(map);
-        return {
+        const resMarkerObject = {
             userMarker: userMarker,
             userCircle: userCircle,
             latitude: currAddressData[0].lat,
-            longitude: currAddressData[0].lon
-        }
+            longitude: currAddressData[0].lon,
+            address : address
+        };
+        markerData.push(resMarkerObject);
+        return resMarkerObject;
+    }
+    const removeSingleMarkerUsingAddress = async (marker) =>{
+        const markerIndex = markerData.findIndex((obj => obj.latitude === marker[0]) && (obj => obj.longitude === marker[1]));
+        const markerobject = markerData[markerIndex];
+        markerData.splice(markerIndex, 1);
+        map.removeLayer(markerobject.userMarker);
+        map.removeLayer(markerobject.userCircle);
     }
     // Define a tolerance for floating-point comparisons
     const tolerance = 1e-25; // Adjust as needed for your specific requirements
