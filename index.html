@@ -19,16 +19,22 @@
             display: flex;
         }
 
+        .input_textarea {
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
         .inputgroups {
-            padding: 2rem;
+            padding: 1rem;
             display: flex;
             flex-direction: column;
         }
 
         .input_button {
-            margin-top: 1rem;
+            margin-bottom: 1rem;
             padding: 0.5rem;
             font-size: 1rem;
+            width: fit-content;
         }
     </style>
     <title>iView Labs Task 2</title>
@@ -38,14 +44,30 @@
     <div class="container">
         <div id="map"></div>
         <div class="inputgroups">
-            <Textarea rows="5" cols="30" class="input_textarea" id="input_textarea"
-                placeholder="Enter location"></Textarea>
-            <div>
-                <button type="button" class="input_button" onclick="addAddress()">+ Add Address</button>
-                <button type="button" class="input_button" id="generate_polygon_button" disabled onclick="generatePolyGon()">Generate
-                    Polygon</button>
+            <a href="/"><button class="input_button">Reset</button></a>
+            <div id="addAddressDiv" style="display: block;">
+                <br>
+                <Textarea rows="5" cols="30" class="input_textarea" id="input_textarea"
+                    placeholder="Enter location to make inital polygon"></Textarea>
+                <div class="inputgroups">
+                    <button type="button" class="input_button" onclick="addAddress()">+ Add Address</button>
+                    <button type="button" class="input_button" id="generate_polygon_button" style="display: none;"
+                        onclick="generatePolyGon()">Generate
+                        Polygon</button>
+                </div>
+
+                <div class="address_list" id="address_list"></div>
             </div>
-            <div class="address_list" id="address_list"></div>
+
+            <div id="checkPointDiv" style="display: none;">
+                <Textarea rows="5" cols="30" class="input_textarea" id="input_textarea_2"
+                    placeholder="Enter location to check whether it belongs to polygon or not"></Textarea>
+                <br>
+                <button type="button" class="input_button" onclick="checkPointInPolygon()">Check !</button>
+                <br>
+                <span id="answer"></span>
+            </div>
+            <br>
         </div>
     </div>
 </body>
@@ -58,40 +80,39 @@
         const address = input_textarea.value
         if (address) {
             const addressDetails = await addSingleMarkerUsingAddress(address)
-            const latitude = Number(addressDetails.latitude).toFixed(5)
-            const longitude = Number(addressDetails.longitude).toFixed(5)
-            const id = Math.floor(Math.random() * (1000))
+            if (addressDetails) {
+                const latitude = addressDetails.latitude
+                const longitude = addressDetails.longitude
+                const id = Math.floor(Math.random() * (1000))
 
-            map.setView(
-                [latitude, longitude],
-                7
-            );
+                map.setView(
+                    [latitude, longitude],
+                    7
+                );
 
-            address_list.push({
-                id: id,
-                address: address,
-                latitude: latitude,
-                longitude: longitude
-            })
-            input_textarea.value = ""
-            displayArray()
+                address_list.push({
+                    id: id,
+                    address: address,
+                    latitude: latitude,
+                    longitude: longitude
+                })
+                input_textarea.value = ""
+                displayArray()
 
-            if (address_list.length > 2)
-                generate_polygon_button.disabled = false
+                if (address_list.length > 2)
+                    generate_polygon_button.style.display = "block"
+            }
         }
     }
 
     const displayArray = () => {
         const display_address_list = document.getElementById("address_list")
-        while (display_address_list.firstChild) {
-            display_address_list.removeChild(display_address_list.firstChild);
-        }
+        removeAllAddress()
         address_list.map((element, index) => {
             const address_element = document.createElement("div")
             address_element.className = "address_element"
             address_element.style = "margin-top: 1rem"
             address_element.innerHTML = `${element.address} -- (${element.latitude}, ${element.longitude}) <button onclick="removeAddress(${element.id})">remove</button>`
-            console.log(address_element)
 
             if (display_address_list.firstChild)
                 display_address_list.insertBefore(address_element, display_address_list.firstChild);
@@ -100,23 +121,67 @@
         })
     }
 
-    const removeAddress = (id) => {
-        console.log(id)
-        address_list = address_list.filter(element => id !== element.id)
-        console.log(address_list)
+    const removeAllAddress = () => {
+        const display_address_list = document.getElementById("address_list")
+        while (display_address_list.firstChild) {
+            display_address_list.removeChild(display_address_list.firstChild);
+        }
+    }
+
+    const removeAddress = async (id) => {
+        const address_index = address_list.findIndex(element => id === element.id)
+        const address = address_list[address_index]
+        address_list.splice(address_index, 1)
+
+        removeSingleMarkerUsingAddress([address.latitude, address.longitude])
         displayArray()
         if (address_list.length < 3)
-            generate_polygon_button.disabled = true
+            generate_polygon_button.style.display = "none"
     }
 
     const generatePolyGon = () => {
         const polygonCordinates = address_list.map(element => [element.latitude, element.longitude])
         const validPolygonData = orderPointsForPolygon(polygonCordinates)
         const polygon = L.polygon(validPolygonData).addTo(map);
+        const checkPointDiv = document.getElementById("checkPointDiv")
+        const generate_polygon_button = document.getElementById("generate_polygon_button")
+        const addAddressDiv = document.getElementById("addAddressDiv")
+
+        removeAllAddress()
+        generate_polygon_button.style.display = "none"
+        checkPointDiv.style.display = "block"
+        addAddressDiv.style.display = "none"
+    }
+
+    const checkPointInPolygon = async () => {
+        const input_textarea = document.getElementById("input_textarea_2")
+        const answer = document.getElementById("answer")
+        const address = input_textarea.value
+        const addressDetails = await addSingleMarkerUsingAddress(address)
+        if (addressDetails) {
+            const latitude = addressDetails.latitude
+            const longitude = addressDetails.longitude
+
+            map.setView(
+                [latitude, longitude],
+                7
+            );
+
+            const polygonCordinates = address_list.map(element => [element.latitude, element.longitude])
+            const validPolygonData = orderPointsForPolygon(polygonCordinates)
+            const res = rayCastingAlgo(
+                [latitude, longitude],
+                validPolygonData);
+
+            if (res)
+                answer.innerHTML = "Yes... point belongs to polygon"
+            else
+                answer.innerHTML = "No... point is not belongs to polygon"
+        }
     }
 
     // JS for back-end
-    const markerData =[];
+    const markerData = [];
     const getCurrentLocationData = () => {
         return new Promise((resolve, reject) => {
             const watcher = navigator.geolocation.watchPosition(
@@ -180,13 +245,13 @@
             userCircle: userCircle,
             latitude: currAddressData[0].lat,
             longitude: currAddressData[0].lon,
-            address : address
+            address: address
         };
         markerData.push(resMarkerObject);
         return resMarkerObject;
     }
-    const removeSingleMarkerUsingAddress = async (marker) =>{
-        const markerIndex = markerData.findIndex((obj => obj.latitude === marker[0]) && (obj => obj.longitude === marker[1]));
+    const removeSingleMarkerUsingAddress = (marker) => {
+        const markerIndex = markerData.findIndex(obj => ((obj.latitude === marker[0]) && (obj.longitude === marker[1])));
         const markerobject = markerData[markerIndex];
         markerData.splice(markerIndex, 1);
         map.removeLayer(markerobject.userMarker);
@@ -294,7 +359,6 @@
                 '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
             const cityMagnification = 1;
             const userLiveCoordinates = await getCurrentLocationData();
-            console.log("User Location", userLiveCoordinates);
             map = L.map("map").setView(
                 [userLiveCoordinates.latitude, userLiveCoordinates.longitude],
                 cityMagnification
@@ -303,11 +367,6 @@
                 attribution: attribution,
             }).addTo(map);
 
-
-            // const res = rayCastingAlgo(
-            //     [x.latitude, x.longitude],
-            //     validPolygonData);
-            // console.log("res", res);
         } catch (error) {
             console.error("Error:", error);
         }
