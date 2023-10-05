@@ -22,6 +22,8 @@
         .input_textarea {
             margin-top: 2rem;
             margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
         }
 
         .inputgroups {
@@ -36,6 +38,18 @@
             font-size: 1rem;
             width: fit-content;
         }
+
+        #addAddressDiv {
+            display: block;
+        }
+
+        #generate_polygon_button {
+            display: none;
+        }
+
+        #checkPointDiv {
+            display: none;
+        }
     </style>
     <title>iView Labs Task 2</title>
 </head>
@@ -45,13 +59,17 @@
         <div id="map"></div>
         <div class="inputgroups">
             <a href="/"><button class="input_button">Reset</button></a>
-            <div id="addAddressDiv" style="display: block;">
+            <div id="addAddressDiv">
                 <br>
-                <Textarea rows="5" cols="30" class="input_textarea" id="input_textarea"
-                    placeholder="Enter location to make inital polygon"></Textarea>
+                <div class="input_textarea">
+                    <Textarea rows="5" cols="30" id="input_textarea"
+                        placeholder="Enter location to make inital polygon">
+                </Textarea>
+                    <small>Add atleast 3 location to generate polygon</small>
+                </div>
                 <div class="inputgroups">
                     <button type="button" class="input_button" onclick="addAddress()">+ Add Address</button>
-                    <button type="button" class="input_button" id="generate_polygon_button" style="display: none;"
+                    <button type="button" class="input_button" id="generate_polygon_button"
                         onclick="generatePolyGon()">Generate
                         Polygon</button>
                 </div>
@@ -59,7 +77,7 @@
                 <div class="address_list" id="address_list"></div>
             </div>
 
-            <div id="checkPointDiv" style="display: none;">
+            <div id="checkPointDiv">
                 <Textarea rows="5" cols="30" class="input_textarea" id="input_textarea_2"
                     placeholder="Enter location to check whether it belongs to polygon or not"></Textarea>
                 <br>
