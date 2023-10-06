@@ -190,7 +190,6 @@
             const res = rayCastingAlgo(
                 [latitude, longitude],
                 validPolygonData);
-
             if (res)
                 answer.innerHTML = "Yes... point belongs to polygon"
             else
@@ -222,9 +221,6 @@
             );
         });
     };
-    const convertURLAddress = (address) => {
-        return address;
-    }
     const getFetchResults = async (searchURL) => {
         try {
             const urlRes = await fetch(searchURL);
@@ -249,11 +245,11 @@
         }
     }
     const addSingleMarkerUsingAddress = async (address) => {
-        const userQueryAddress = convertURLAddress(address); //TODO Implement this function.
+        const userQueryAddress = encodeURIComponent(address); 
         const NominatimQuery = `
       https://nominatim.openstreetmap.org/search?q=${userQueryAddress}&format=json&polygon=1&addressdetails=1
       `
-        const currAddressData = await getFetchResults(NominatimQuery);
+      const currAddressData = await getFetchResults(NominatimQuery);
         const userMarker = L.marker([currAddressData[0].lat, currAddressData[0].lon])
             .addTo(map)
             .bindPopup("Users Current Location");
@@ -309,7 +305,7 @@
         const slope1 = (y - y1) / (x - x1);
         const slope2 = (y - y2) / (x - x2);
         const slopeTolerance = 1e-6;
-        if (Math.abs(slope1 - slope2) <= slopeTolerance) {
+        if (Math.abs(slope1 - slope2)<= slopeTolerance) {
             if (
                 (x >= Math.min(x1, x2) && x <= Math.max(x1, x2)) &&
                 (y >= Math.min(y1, y2) && y <= Math.max(y1, y2))
